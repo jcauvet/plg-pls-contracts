@@ -112,4 +112,9 @@ describe("PLS Bonus Tests", function () {
         const bal = await token.balanceOf(accounts[0].address);
         expect(bal.sub(balBef)).eq(tokenBal);
     });
+
+    it("Non owners should not be able to withdraw", async () => {
+        const tx = bonus.connect(accounts[1]).withdrawAllToken(token.address);
+        await expect(tx).revertedWith(Errors.nonOwner);
+    });
 });
