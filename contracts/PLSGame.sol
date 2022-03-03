@@ -31,20 +31,31 @@ contract PLSGame is Ownable {
     uint256 public platFee = 2000; // 20%
     ERC20 public token; // game currency token
     address public feeWallet; // Wallet which receives earnings from game
+    address public plsBonus;
 
     mapping(address => uint256) public wallet; // User's virtual wallets
     mapping(string => Game) public games; // all games
     mapping(string => bool) public gameExists; // whether gameId has been used before
     mapping(string => address) public refundClaimed; // maintain whether refund was claimed as a separate mapping for optimisation
 
-    constructor(address _token) {
+    constructor(address _token, address _plsBonus) {
         token = ERC20(_token);
         feeWallet = msg.sender;
+        plsBonus = _plsBonus;
     }
 
     modifier checkGameExists(string memory gameId) {
         require(gameExists[gameId], "Game does not exist");
         _;
+    }
+
+    modifier onlyBonusContract() {
+        require(msg.sender == plsBonus, "Caller not bonus contract");
+        _;
+    }
+
+    function depositBonusForUser(address user, uint256 amt) external onlyBonusContract {
+        wallet[user] += amt;
     }
 
     // Deposit tokens to user's virtual wallet
@@ -121,6 +132,11 @@ contract PLSGame is Ownable {
     // Set address for fee wallet
     function setFeeWallet(address _feeWallet) external onlyOwner {
         feeWallet = _feeWallet;
+    }
+
+    // Set address for bonus contract
+    function setBonusAddress(address _plsBonus) external onlyOwner {
+        plsBonus = _plsBonus;
     }
 }
 

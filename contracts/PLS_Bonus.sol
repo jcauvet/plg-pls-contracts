@@ -5,12 +5,17 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+interface IPLSGame {
+    function depositBonusForUser(address user, uint256 amt) external;
+}
+
 contract PLS_Bonus is Ownable {
     using SafeERC20 for ERC20;
 
     ERC20 public bonusToken;
     uint256 public maxBonus;
-    uint public tokenDebt;
+    uint256 public tokenDebt;
+    IPLSGame public plsGame;
     mapping(address => uint256) public userBonus;
 
     constructor(address _bonusToken, uint256 _maxBonus) {
@@ -24,7 +29,8 @@ contract PLS_Bonus is Ownable {
         uint256 claimAmt = userBonus[msg.sender];
         userBonus[msg.sender] = 0;
         tokenDebt -= claimAmt;
-        bonusToken.safeTransfer(msg.sender, claimAmt);
+        bonusToken.safeTransfer(address(plsGame), claimAmt);
+        plsGame.depositBonusForUser(msg.sender, claimAmt);
     }
 
     //
@@ -32,6 +38,10 @@ contract PLS_Bonus is Ownable {
     //
     function setMaxBonus(uint256 _maxBonus) public onlyOwner {
         maxBonus = _maxBonus;
+    }
+
+    function setPlsGameAdd(address _plsGameAdd) public onlyOwner {
+        plsGame = IPLSGame(_plsGameAdd);
     }
 
     // Add bonuses for users. New bonuses get added to old bonuses if any

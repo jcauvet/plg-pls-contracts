@@ -11,6 +11,7 @@ const Errors = {
 describe("PLS Bonus Tests", function () {
     let bonus;
     let token;
+    let game;
     let accounts;
     before(async () => {
         const Token = await ethers.getContractFactory("PLS");
@@ -21,7 +22,14 @@ describe("PLS Bonus Tests", function () {
         bonus = await Bonus.deploy(token.address, "100");
         await bonus.deployed();
 
-        let tx = await token.whitelistAddress([bonus.address]);
+        const PLSGame = await ethers.getContractFactory("PLSGame");
+        game = await PLSGame.deploy(token.address, bonus.address);
+        await game.deployed();
+
+        let tx = await bonus.setPlsGameAdd(game.address);
+        await tx.wait();
+
+        tx = await token.whitelistAddress([bonus.address]);
         await tx.wait();
 
         tx = await token.transfer(bonus.address, "1000000000");
@@ -30,6 +38,7 @@ describe("PLS Bonus Tests", function () {
         accounts = await ethers.getSigners();
     });
 
+    // SET MAX BONUS
     it("Should be able to set max bonus", async () => {
         const tx = await bonus.setMaxBonus("10000");
         await tx.wait();
@@ -42,6 +51,20 @@ describe("PLS Bonus Tests", function () {
         await expect(tx).revertedWith(Errors.nonOwner);
     });
 
+    // SET PLS GAME ADD
+    it("Non owners should not be able to set address for PLS game", async () => {
+        const tx = bonus.connect(accounts[1]).setPlsGameAdd(game.address);
+        await expect(tx).revertedWith(Errors.nonOwner);
+    });
+
+    it("Should be able to set address for PLS game", async () => {
+        const tx = await bonus.setPlsGameAdd(game.address);
+        await tx.wait();
+        const setAdd = await bonus.plsGame();
+        expect(setAdd).eq(game.address);
+    });
+
+    // ADD BONUS FOR USERS
     it("Non owners should not be able to add bonuses", async () => {
         const tx = bonus
             .connect(accounts[15])
@@ -90,10 +113,10 @@ describe("PLS Bonus Tests", function () {
     });
 
     it("Should be able to claim bonus", async () => {
-        const balbef = await token.balanceOf(accounts[11].address);
+        const balbef = await game.wallet(accounts[11].address);
         const tx = await bonus.connect(accounts[11]).claimBonus();
         await tx.wait();
-        const bal = await token.balanceOf(accounts[11].address);
+        const bal = await game.wallet(accounts[11].address);
         expect(bal.sub(balbef)).eq("2000");
         const bonus11C = await bonus.userBonus(accounts[11].address);
         expect(bonus11C).eq("0");

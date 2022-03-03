@@ -10,10 +10,12 @@ const Errors = {
     lowBal: "Insufficient Balance",
     lowBalPl1: "Insufficient Balance:Player 1",
     lowBalPl2: "Insufficient Balance:Player 2",
+    notBonusAcc: "Caller not bonus contract",
 };
 
 describe("PLS Game Tests", function () {
     let game;
+    let bonus;
     let token;
     let accounts;
     let feeWallet;
@@ -22,8 +24,12 @@ describe("PLS Game Tests", function () {
         token = await Token.deploy();
         await token.deployed();
 
+        const Bonus = await ethers.getContractFactory("PLS_Bonus");
+        bonus = await Bonus.deploy(token.address, "100");
+        await bonus.deployed();
+
         const PLSGame = await ethers.getContractFactory("PLSGame");
-        game = await PLSGame.deploy(token.address);
+        game = await PLSGame.deploy(token.address, bonus.address);
         await game.deployed();
 
         let tx = await token.whitelistAddress([game.address]);
@@ -71,6 +77,27 @@ describe("PLS Game Tests", function () {
     it("Non Owner should not be able to set feeWallet fee", async () => {
         const tx = game.connect(accounts[1]).setFeeWallet(accounts[1].address);
         await expect(tx).revertedWith(Errors.nonOwner);
+    });
+
+    // Set Bonus Contract Address
+    it("Non Owner should not be able to set bonus contract address", async () => {
+        const tx = game.connect(accounts[1]).setBonusAddress(accounts[1].address);
+        await expect(tx).revertedWith(Errors.nonOwner);
+    });
+
+    it("Should be able to set address for bonus contract", async () => {
+        let tx = await game.setBonusAddress(accounts[2].address);
+        await tx.wait();
+        const setAdd = await game.plsBonus();
+        expect(setAdd).eq(accounts[2].address);
+        tx = await game.setBonusAddress(bonus.address);
+        await tx.wait();
+    });
+
+    // Deposit Bonus For User
+    it("Should not allow other addresses to call depositBonusForUser", async () => {
+        const tx = game.depositBonusForUser(accounts[1].address, "10000");
+        await expect(tx).revertedWith(Errors.notBonusAcc);
     });
 
     // Deposit / Withdraw Money
