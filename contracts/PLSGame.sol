@@ -7,36 +7,35 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract PLSGame is Ownable {
     using SafeERC20 for ERC20;
-    // A - 100
-    // B - 200
-    // 50 A/B =>
 
     enum Status {
         Initiated,
         Completed,
         Aborted
     }
+    // Initiated : Game started, players money in escrow
+    // Completed: Game completed (Win/Loss)
+    // Aborted: Game ended by mutual quit
 
+    // Game Data Structure
     struct Game {
         string gameId;
         address player1;
         address player2;
-        bool player1Paid;
-        bool player2Paid;
         address winner;
-        bool winnerClaimed;
         uint256 deposit; // deposit per user
         uint256 platFee;
         Status status;
     }
 
     uint256 public platFee = 2000; // 20%
-    ERC20 public token;
-    address public feeWallet;
+    ERC20 public token; // game currency token
+    address public feeWallet; // Wallet which receives earnings from game
 
-    mapping(string => Game) games; // all games
-    mapping(string => bool) gameExists; // whether gameId has been used before
-    mapping(string => address) refundClaimed; // maintain whether refund was claimed as a separate mapping for optimisation
+    mapping(address => uint256) public wallet; // User's virtual wallets
+    mapping(string => Game) public games; // all games
+    mapping(string => bool) public gameExists; // whether gameId has been used before
+    mapping(string => address) public refundClaimed; // maintain whether refund was claimed as a separate mapping for optimisation
 
     constructor(address _token) {
         token = ERC20(_token);
@@ -48,6 +47,19 @@ contract PLSGame is Ownable {
         _;
     }
 
+    // Deposit tokens to user's virtual wallet
+    function depositToken(uint256 amt) external {
+        wallet[msg.sender] += amt;
+        token.safeTransferFrom(msg.sender, address(this), amt);
+    }
+
+    // Withdraw funds from user's virtual wallet
+    function withdrawToken(uint256 amt) external {
+        require(amt <= wallet[msg.sender], "Insufficient Balance");
+        wallet[msg.sender] -= amt;
+        token.safeTransfer(msg.sender, amt);
+    }
+
     // Start a new game
     function addGame(
         string calldata gameId,
@@ -56,67 +68,50 @@ contract PLSGame is Ownable {
         uint256 deposit
     ) external onlyOwner {
         require(!gameExists[gameId], "Repeated Game ID");
-
+        require(deposit <= wallet[player1], "Insufficient Balance:Player 1");
+        require(deposit <= wallet[player2], "Insufficient Balance:Player 2");
+        // Put user's money in escrow
+        wallet[player1] -= deposit;
+        wallet[player2] -= deposit;
+        // Create entry for game
         gameExists[gameId] = true;
         games[gameId] = Game({
             gameId: gameId,
             player1: player1,
             player2: player2,
-            player1Paid: false,
-            player2Paid: false,
             winner: address(0),
-            winnerClaimed: false,
             deposit: deposit,
             platFee: platFee,
             status: Status.Initiated
         });
     }
 
-    // Deposit tokens for a game to escrow
-    function depositForGame(string calldata gameId) external checkGameExists(gameId) {
-        Game storage game = games[gameId];
-        require(game.status == Status.Initiated, "Game not in initial state");
-        require(game.player1 == msg.sender || game.player2 == msg.sender, "Player not part of game");
-        if (msg.sender == game.player1) {
-            require(!game.player1Paid, "Deposited already");
-            game.player1Paid = true;
-        } else if (msg.sender == game.player2) {
-            require(!game.player2Paid, "Deposited already");
-            game.player2Paid = true;
-        }
-        token.safeTransferFrom(msg.sender, address(this), game.deposit);
-    }
-
-    // Update result for game
+    // Update winner for game. Transfer money to admin wallet & user's admin wallet
     function markGameComplete(string calldata gameId, address winner) external onlyOwner checkGameExists(gameId) {
         Game storage game = games[gameId];
         require(game.status == Status.Initiated, "Game not in initial state");
         require(winner == game.player1 || winner == game.player2, "Winner address is not a participant");
-        require(game.player1Paid && game.player2Paid, "Cannot update final state when payments were incomplete");
+        // Update game status
         game.status = Status.Completed;
         game.winner = winner;
-    }
-
-    function claimWinnerMoney(string calldata gameId) external checkGameExists(gameId) {
-        Game storage game = games[gameId];
-        require(game.status == Status.Completed, "Game not in completed state");
-        require(!game.winnerClaimed, "Winner money already claimed");
-        game.winnerClaimed = true;
+        // Distribute money
         uint256 totalGamePrize = 2 * game.deposit;
         uint256 platFeeAmt = (totalGamePrize * game.platFee) / 10000;
-        token.safeTransfer(game.winner, totalGamePrize - platFeeAmt);
+        wallet[winner] += totalGamePrize - platFeeAmt;
+        // Transfer fee to platform wallet
         token.safeTransfer(feeWallet, platFeeAmt);
     }
 
-    // End game with mutual quit
+    // End game with mutual quit. Refund balances to virtual wallets
     function markGameForMutualQuit(string calldata gameId) external onlyOwner checkGameExists(gameId) {
         Game storage game = games[gameId];
         require(game.status == Status.Initiated, "Game not in initial state");
-        require(game.player1Paid && game.player2Paid, "Cannot update final state when payments were incomplete");
         game.status = Status.Aborted;
+        // Refund balances to user
+        // TODO: Do we take a platform fee ?
+        wallet[game.player1] += game.deposit;
+        wallet[game.player2] += game.deposit;
     }
-
-    // Claim money f
 
     // Set value for platform fees
     function setPlatfee(uint256 _platFee) external onlyOwner {
@@ -128,3 +123,30 @@ contract PLSGame is Ownable {
         feeWallet = _feeWallet;
     }
 }
+
+// UNUSED CODE POST CHANGE IN FLOW. TO BE REMOVED LATER
+// function claimWinnerMoney(string calldata gameId) external checkGameExists(gameId) {
+//     Game storage game = games[gameId];
+//     require(game.status == Status.Completed, "Game not in completed state");
+//     require(!game.winnerClaimed, "Winner money already claimed");
+//     game.winnerClaimed = true;
+//     uint256 totalGamePrize = 2 * game.deposit;
+//     uint256 platFeeAmt = (totalGamePrize * game.platFee) / 10000;
+//     token.safeTransfer(game.winner, totalGamePrize - platFeeAmt);
+//     token.safeTransfer(feeWallet, platFeeAmt);
+// }
+
+// Deposit tokens for a game to escrow
+// function depositForGame(string calldata gameId) external checkGameExists(gameId) {
+//     Game storage game = games[gameId];
+//     require(game.status == Status.Initiated, "Game not in initial state");
+//     require(game.player1 == msg.sender || game.player2 == msg.sender, "Player not part of game");
+//     if (msg.sender == game.player1) {
+//         require(!game.player1Paid, "Deposited already");
+//         game.player1Paid = true;
+//     } else if (msg.sender == game.player2) {
+//         require(!game.player2Paid, "Deposited already");
+//         game.player2Paid = true;
+//     }
+//     token.safeTransferFrom(msg.sender, address(this), game.deposit);
+// }
