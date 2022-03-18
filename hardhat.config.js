@@ -4,6 +4,8 @@ require("@nomiclabs/hardhat-etherscan");
 require("@nomiclabs/hardhat-waffle");
 require("hardhat-gas-reporter");
 require("solidity-coverage");
+require("hardhat-deploy");
+require("@nomiclabs/hardhat-ethers");
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
@@ -28,12 +30,22 @@ module.exports = {
             url: process.env.ROPSTEN_URL || "",
             accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
         },
+        testnet: {
+            url: `https://api.s0.b.hmny.io`,
+            accounts: [process.env.PRIVATE_KEY],
+        },
+        mainnet: {
+            url: `https://api.harmony.one`,
+            accounts: [process.env.PRIVATE_KEY],
+        },
     },
     gasReporter: {
         enabled: process.env.REPORT_GAS !== undefined,
         currency: "USD",
     },
     etherscan: {
-        apiKey: process.env.ETHERSCAN_API_KEY,
+        apiKey: {
+            harmonyTest: "34567890",
+        },
     },
 };

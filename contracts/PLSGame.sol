@@ -33,7 +33,7 @@ contract PLSGame is Ownable {
     address public feeWallet; // Wallet which receives earnings from game
     address public plsBonus;
 
-    mapping(address => uint256) public wallet; // User's virtual wallets
+    mapping(address => uint256) public wallet; // User's virtual wallets // .wallet("0x1234")
     mapping(string => Game) public games; // all games
     mapping(string => bool) public gameExists; // whether gameId has been used before
     mapping(string => address) public refundClaimed; // maintain whether refund was claimed as a separate mapping for optimisation
