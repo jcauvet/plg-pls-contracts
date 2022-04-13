@@ -227,17 +227,17 @@ describe("PLS Game Tests", function () {
     // MUTUAL QUIT
 
     it("Non owner should not be able to mark game as mutualquit", async () => {
-        const tx = game.connect(accounts[1]).markGameForMutualQuit("game1");
+        const tx = game.connect(accounts[1]).markGameIncomplete("game1", true);
         await expect(tx).revertedWith(Errors.nonOwner);
     });
 
     it("Should not be able to mark game as mutualquit if gameId was invalid", async () => {
-        const tx = game.markGameForMutualQuit("game98765");
+        const tx = game.markGameIncomplete("game98765", true);
         await expect(tx).revertedWith(Errors.gameNotExist);
     });
 
     it("Should not be able to mark game as mutualquit if it was completed before", async () => {
-        const tx = game.markGameForMutualQuit("game1");
+        const tx = game.markGameIncomplete("game1", true);
         await expect(tx).revertedWith(Errors.gameInitialState);
     });
 
@@ -257,12 +257,39 @@ describe("PLS Game Tests", function () {
         tx = await game.addGame(gameId, player1, player2, deposit);
         await tx.wait();
 
-        tx = await game.markGameForMutualQuit(gameId);
+        tx = await game.markGameIncomplete(gameId, true);
         await tx.wait();
 
         const player1Wall = await game.wallet(player1);
         const player2Wall = await game.wallet(player2);
         const { status } = await game.games("gameMutualQuit");
+        expect(status).eq(3);
+        expect(player1WallOld.sub(player1Wall)).eq("0");
+        expect(player2WallOld.sub(player2Wall)).eq("0");
+    });
+
+    it("Should be able to mark a game as aborted", async () => {
+        let tx = await game.connect(accounts[5]).depositToken("100000");
+        await tx.wait();
+        tx = await game.connect(accounts[6]).depositToken("100000");
+        await tx.wait();
+
+        const player1 = accounts[5].address;
+        const player2 = accounts[6].address;
+        const deposit = "100000";
+        const gameId = "gameAborted";
+        const player1WallOld = await game.wallet(player1);
+        const player2WallOld = await game.wallet(player2);
+
+        tx = await game.addGame(gameId, player1, player2, deposit);
+        await tx.wait();
+
+        tx = await game.markGameIncomplete(gameId, false);
+        await tx.wait();
+
+        const player1Wall = await game.wallet(player1);
+        const player2Wall = await game.wallet(player2);
+        const { status } = await game.games(gameId);
         expect(status).eq(2);
         expect(player1WallOld.sub(player1Wall)).eq("0");
         expect(player2WallOld.sub(player2Wall)).eq("0");

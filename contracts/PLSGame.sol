@@ -11,7 +11,8 @@ contract PLSGame is Ownable {
     enum Status {
         Initiated,
         Completed,
-        Aborted
+        Aborted,
+        MutualQuit
     }
     // Initiated : Game started, players money in escrow
     // Completed: Game completed (Win/Loss)
@@ -114,12 +115,11 @@ contract PLSGame is Ownable {
     }
 
     // End game with mutual quit. Refund balances to virtual wallets
-    function markGameForMutualQuit(string calldata gameId) external onlyOwner checkGameExists(gameId) {
+    function markGameIncomplete(string calldata gameId, bool isMutualQuit) external onlyOwner checkGameExists(gameId) {
         Game storage game = games[gameId];
         require(game.status == Status.Initiated, "Game not in initial state");
-        game.status = Status.Aborted;
+        game.status = (isMutualQuit ? Status.MutualQuit : Status.Aborted);
         // Refund balances to user
-        // TODO: Do we take a platform fee ?
         wallet[game.player1] += game.deposit;
         wallet[game.player2] += game.deposit;
     }
