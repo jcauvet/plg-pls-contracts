@@ -26,13 +26,13 @@ module.exports = async ({ getNamedAccounts, deployments, ethers, run }) => {
     });
     const game = await ethers.getContract("PLSGame", deployer);
 
-    // let tx = await bonus.setPlsGameAdd(game.address);
-    // await tx.wait();
-    // console.log("=> Game address set in bonus contract");
+    let tx = await bonus.setPlsGameAdd(game.address);
+    await tx.wait();
+    console.log("=> Game address set in bonus contract");
 
-    // tx = await pls.whitelistAddress([game.address, bonus.address]);
-    // await tx.wait();
-    // console.log("=> Whitelisted game & bonus addresses");
+    tx = await pls.whitelistAddress([game.address, bonus.address]);
+    await tx.wait();
+    console.log("=> Whitelisted game & bonus addresses");
 
     try {
         await run("verify:verify", {
