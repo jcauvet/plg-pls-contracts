@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -12,7 +12,7 @@ interface IPLSGame {
 contract PLS_Bonus is Ownable {
     using SafeERC20 for ERC20;
 
-    ERC20 public bonusToken;
+    ERC20 immutable public bonusToken;
     uint256 public maxBonus;
     uint256 public tokenDebt;
     IPLSGame public plsGame;
@@ -40,7 +40,7 @@ contract PLS_Bonus is Ownable {
         maxBonus = _maxBonus;
     }
 
-    function setPlsGameAdd(address _plsGameAdd) public onlyOwner {
+    function setPlsGameAdd(address _plsGameAdd) external onlyOwner {
         plsGame = IPLSGame(_plsGameAdd);
     }
 

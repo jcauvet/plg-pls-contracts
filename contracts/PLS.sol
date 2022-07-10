@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -66,11 +66,13 @@ contract PLS is ERC20, Ownable {
 
     // Set Tax Percentage. 15% => 1500
     function setTaxPercent(uint256 _taxPerc) external onlyOwner {
+        require(_taxPerc <= 1500, "Tax threshold exceeded");
         taxPerc = _taxPerc;
     }
 
     // Set Tax Wallet
     function setTaxWallet(address _taxWallet) external onlyOwner {
+        require(_taxWallet != address(0), "Invalid tax wallet");
         taxWallet = _taxWallet;
     }
 

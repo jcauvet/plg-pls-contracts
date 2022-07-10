@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -30,7 +30,7 @@ contract PLSGame is Ownable {
     }
 
     uint256 public platFee = 2000; // 20%
-    ERC20 public token; // game currency token
+    ERC20 immutable public token; // game currency token
     address public feeWallet; // Wallet which receives earnings from game
     address public plsBonus;
 
@@ -126,43 +126,20 @@ contract PLSGame is Ownable {
 
     // Set value for platform fees
     function setPlatfee(uint256 _platFee) external onlyOwner {
+        require(_platFee <= 4000, "Fee threshold exceeded");
         platFee = _platFee;
     }
 
     // Set address for fee wallet
     function setFeeWallet(address _feeWallet) external onlyOwner {
+        require(_feeWallet != address(0), "Invalid fee wallet");
         feeWallet = _feeWallet;
     }
 
     // Set address for bonus contract
     function setBonusAddress(address _plsBonus) external onlyOwner {
+        require(_plsBonus != address(0), "Invalid bonus address");
         plsBonus = _plsBonus;
     }
 }
 
-// UNUSED CODE POST CHANGE IN FLOW. TO BE REMOVED LATER
-// function claimWinnerMoney(string calldata gameId) external checkGameExists(gameId) {
-//     Game storage game = games[gameId];
-//     require(game.status == Status.Completed, "Game not in completed state");
-//     require(!game.winnerClaimed, "Winner money already claimed");
-//     game.winnerClaimed = true;
-//     uint256 totalGamePrize = 2 * game.deposit;
-//     uint256 platFeeAmt = (totalGamePrize * game.platFee) / 10000;
-//     token.safeTransfer(game.winner, totalGamePrize - platFeeAmt);
-//     token.safeTransfer(feeWallet, platFeeAmt);
-// }
-
-// Deposit tokens for a game to escrow
-// function depositForGame(string calldata gameId) external checkGameExists(gameId) {
-//     Game storage game = games[gameId];
-//     require(game.status == Status.Initiated, "Game not in initial state");
-//     require(game.player1 == msg.sender || game.player2 == msg.sender, "Player not part of game");
-//     if (msg.sender == game.player1) {
-//         require(!game.player1Paid, "Deposited already");
-//         game.player1Paid = true;
-//     } else if (msg.sender == game.player2) {
-//         require(!game.player2Paid, "Deposited already");
-//         game.player2Paid = true;
-//     }
-//     token.safeTransferFrom(msg.sender, address(this), game.deposit);
-// }
